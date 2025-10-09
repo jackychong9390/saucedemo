@@ -4,14 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       user:
+        description: "Pick SauceDemo user"
         type: choice
         default: standard_user
-        options: [standard_user, locked_out_user, problem_user, performance_glitch_user, error_user, visual_user, all]
+        options:
+          - standard_user
+          - locked_out_user
+          - problem_user
+          - performance_glitch_user
+          - error_user
+          - visual_user
+          - all
       project:
+        description: "Browser project"
         type: choice
         default: chromium
         options: [chromium, firefox, webkit]
       headed:
+        description: "Run headed"
         type: boolean
         default: false
 
@@ -20,31 +30,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - name: Install deps
+        run: npm ci
 
-      # This line auto-installs the browsers that MATCH your @playwright/test version
-      - uses: microsoft/playwright-github-action@v1
-        with:
-          with-deps: true   # OS deps on Ubuntu
+      - name: Install Playwright (browsers + deps)
+        run: npx playwright install --with-deps
 
+      # Single user run
       - name: Run tests (single user)
         if: ${{ inputs.user != 'all' }}
         env:
           USER_TYPE: ${{ inputs.user }}
-          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }}
+          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }} # optional; your test defaults to 'secret_sauce'
         run: |
           CMD="npx playwright test --project=${{ inputs.project }} --reporter=html"
+          # Turn boolean -> "true"/"false" via expression, then compare strings in bash
           if [ "${{ inputs.headed == true }}" = "true" ]; then CMD="$CMD --headed"; fi
           echo "Running: $CMD as $USER_TYPE"
           $CMD
-
+      # Run all personas in a loop
       - name: Run tests (all users)
         if: ${{ inputs.user == 'all' }}
         run: |
@@ -55,16 +68,17 @@ jobs:
             USER_TYPE="$U" npx playwright test --project=${{ inputs.project }} --reporter=html || FAIL=1
           done
           exit $FAIL
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload HTML report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload traces/videos
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: test-results
