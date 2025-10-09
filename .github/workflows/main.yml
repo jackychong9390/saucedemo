@@ -50,15 +50,15 @@ jobs:
         if: ${{ inputs.user != 'all' }}
         env:
           USER_TYPE: ${{ inputs.user }}
-          # optional: set this in repo secrets; test defaults to 'secret_sauce' if unset
-          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }}
+          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }} # optional; your test defaults to 'secret_sauce'
         run: |
-          CMD="npx playwright test --project='${{ inputs.project }}'"
-          if [ "${{ inputs.headed }}" = "true" ]; then CMD="$CMD --headed"; fi
+          CMD="npx playwright test --project=${{ inputs.project }} --reporter=html"
+          # Turn boolean -> "true"/"false" via expression, then compare strings in bash
+          if [ "${{ inputs.headed == true }}" = "true" ]; then CMD="$CMD --headed"; fi
           echo "Running: $CMD as $USER_TYPE"
           $CMD
 
-      # Run all personas in a loop (still one job; simple and readable)
+      # Run all personas in a loop
       - name: Run tests (all users)
         if: ${{ inputs.user == 'all' }}
         run: |
@@ -66,9 +66,7 @@ jobs:
           FAIL=0
           for U in "${USERS[@]}"; do
             echo "================= $U ================="
-            CMD="npx playwright test --project='${{ inputs.project }}'"
-            if [ "${{ inputs.headed }}" = "true" ]; then CMD="$CMD --headed"; fi
-            USER_TYPE="$U" $CMD || FAIL=1
+            USER_TYPE="$U" npx playwright test --project=${{ inputs.project }} --reporter=html || FAIL=1
           done
           exit $FAIL
 
