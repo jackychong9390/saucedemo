@@ -1,6 +1,7 @@
 name: Playwright E2E
 
 on:
+  # Manual run with inputs
   workflow_dispatch:
     inputs:
       user:
@@ -20,10 +21,15 @@ on:
         type: choice
         default: chromium
         options: [chromium, firefox, webkit]
-      headed:
-        description: "Run headed"
-        type: boolean
-        default: false
+
+  # Run on merges (pushes) to main
+  push:
+    branches: [ main ]
+
+  # Run every 3 days in October (UTC)
+  # At 02:00 UTC on day 1,4,7,10,13,16,19,22,25,28,31 of October
+  schedule:
+    - cron: '0 2 1,4,7,10,13,16,19,22,25,28,31 10 *'
 
 jobs:
   test:
@@ -49,14 +55,13 @@ jobs:
       - name: Run tests (single user)
         if: ${{ inputs.user != 'all' }}
         env:
-          USER_TYPE: ${{ inputs.user }}
-          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }} # optional; your test defaults to 'secret_sauce'
+          USER_TYPE: ${{ inputs.user || 'standard_user' }}
+          USER_PASSWORD: ${{ secrets.SAUCE_PASSWORD }} # optional; tests default to 'secret_sauce'
         run: |
-          CMD="npx playwright test --project=${{ inputs.project }} --reporter=html"
-          # Turn boolean -> "true"/"false" via expression, then compare strings in bash
-          if [ "${{ inputs.headed == true }}" = "true" ]; then CMD="$CMD --headed"; fi
+          CMD="npx playwright test --project=${{ inputs.project || 'chromium' }} --reporter=html"
           echo "Running: $CMD as $USER_TYPE"
           $CMD
+
       # Run all personas in a loop
       - name: Run tests (all users)
         if: ${{ inputs.user == 'all' }}
@@ -65,9 +70,10 @@ jobs:
           FAIL=0
           for U in "${USERS[@]}"; do
             echo "================= $U ================="
-            USER_TYPE="$U" npx playwright test --project=${{ inputs.project }} --reporter=html || FAIL=1
+            USER_TYPE="$U" npx playwright test --project=${{ inputs.project || 'chromium' }} --reporter=html || FAIL=1
           done
           exit $FAIL
+
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
