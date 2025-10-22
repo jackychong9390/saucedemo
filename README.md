@@ -1,5 +1,5 @@
 **Overview**
-This repository contains UI tests for saucedemo.com built with Playwright Test.
+This repository contains UI tests for saucedemo.com built with Playwright Test using JavaScript.
 The suite is data-driven: different user personas produce different behaviors and results across pages (e.g., login outcomes, inventory visibility, cart state).
 
 Objective
